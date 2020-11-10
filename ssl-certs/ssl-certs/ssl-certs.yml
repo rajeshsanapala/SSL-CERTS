@@ -1,0 +1,8 @@
+---
+
+- name: Create or Replace expired SSL certificates
+  hosts: localhost
+  tasks:
+    - include_role:
+        name: ssl-certs
+    - include_vars: vault/certs/certificate.yml

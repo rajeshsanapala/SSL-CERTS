@@ -1,0 +1,77 @@
+---
+
+- name: Find the certificate files
+  find:
+    paths: "{{ certs_path }}"
+    patterns: '*.crt'
+  register: certificates
+
+- name: Check if the certificates are valid
+  openssl_certificate_info:
+    path: "{{ cert_file.path }}"
+    valid_at: 
+      best_before: "+{{ cert_expiry }}d"
+  register: cert_info
+  loop:
+    "{{ certificates.files }}"
+  loop_control:
+    loop_var: cert_file
+
+- name: Find certificates which expire in 'best_before' days
+  set_fact:
+    certs_to_replace: "{{ cert_info | json_query('results[? !(valid_at.best_before)]') }}"
+
+- name: make sure SSL certificate is copied on target server
+  copy:
+    content: '{{ item.content }}'
+    dest: "{{ ca_cert_path }}"
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - "{{ ssl_certificate }}"
+  when: certs_to_replace !=""
+
+- name: make sure SSL private key is copied on target server
+  copy:
+    content: '{{ item.content }}'
+    dest: "{{ ca_private_key_path }}"
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - "{{ ssl_private_key }}"
+  when: certs_to_replace !=""
+
+- name: make sure SSL CSR is copied on target server
+  copy:
+    content: '{{ item.content }}'
+    dest: "{{ csr_path }}"
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - "{{ ssl_csr }}"
+  when: certs_to_replace !=""
+
+- name: Generate an OpenSSL certificate with self signed 
+  openssl_certificate:
+    path: "{{ ca_cert_path }}"
+    csr_path: "{{ csr_path }}"
+    privatekey_path: "{{ ca_private_key_path }}"
+    provider: selfsigned
+  notify:
+    Restart httpd
+  when: certs_to_replace !=""
+   
+- name: Delete all cert files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items: 
+     - "{{ csr_path }}"
+     - "{{ ca_cert_path }}"
+     - "{{ ca_private_key_path }}"
+  when: certs_to_replace !=""
+
+

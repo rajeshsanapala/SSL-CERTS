@@ -1,0 +1,7 @@
+---
+
+certs_path: /etc/pki/tls/certs
+csr_path: /etc/pki/tls/private/client.csr
+ca_cert_path: /etc/pki/tls/private/self-signed.crt
+ca_private_key_path: /etc/pki/tls/private/server-master.key
+cert_expiry: 1
